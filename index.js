@@ -6,8 +6,8 @@ var EJSON = require("ejson");
 
 class DDPClient extends EventEmitter{
   constructor(opts) {
+    var self = this;
     opts = opts || {};
-
     // backwards compatibility
     if ("use_ssl" in opts)
       opts.ssl = opts.use_ssl;
@@ -21,97 +21,100 @@ class DDPClient extends EventEmitter{
       opts.ddpVersion = opts.ddp_version;
 
     // default arguments
-    this.host = opts.host || "localhost";
-    this.port = opts.port || 3000;
-    this.path = opts.path;
-    this.ssl = opts.ssl || this.port === 443;
-    this.tlsOpts = opts.tlsOpts || {};
-    this.autoReconnect = ("autoReconnect" in opts) ? opts.autoReconnect : true;
-    this.autoReconnectTimer = ("autoReconnectTimer" in opts) ? opts.autoReconnectTimer : 500;
-    this.maintainCollections = ("maintainCollections" in opts) ? opts.maintainCollections : true;
-    this.url = opts.url;
-    this.socketConstructor = opts.socketContructor || WebSocket;
+    self.host = opts.host || "localhost";
+    self.port = opts.port || 3000;
+    self.path = opts.path;
+    self.ssl = opts.ssl || self.port === 443;
+    self.tlsOpts = opts.tlsOpts || {};
+    self.autoReconnect = ("autoReconnect" in opts) ? opts.autoReconnect : true;
+    self.autoReconnectTimer = ("autoReconnectTimer" in opts) ? opts.autoReconnectTimer : 500;
+    self.maintainCollections = ("maintainCollections" in opts) ? opts.maintainCollections : true;
+    self.url = opts.url;
+    self.socketConstructor = opts.socketContructor || WebSocket;
 
     // support multiple ddp versions
-    this.ddpVersion = ("ddpVersion" in opts) ? opts.ddpVersion : "1";
-    this.supportedDdpVersions = ["1", "pre2", "pre1"];
+    self.ddpVersion = ("ddpVersion" in opts) ? opts.ddpVersion : "1";
+    self.supportedDdpVersions = ["1", "pre2", "pre1"];
 
     // Expose EJSON object, so client can use EJSON.addType(...)
-    this.EJSON = EJSON;
+    self.EJSON = EJSON;
 
     // very very simple collections (name -> [{id -> document}])
-    if (this.maintainCollections) {
-      this.collections = {};
+    if (self.maintainCollections) {
+      self.collections = {};
     }
 
     // internal stuff to track callbacks
-    this._isConnecting = false;
-    this._isReconnecting = false;
-    this._nextId = 0;
-    this._callbacks = {};
-    this._updatedCallbacks = {};
-    this._pendingMethods = {};
-    this._observers = {};
+    self._isConnecting = false;
+    self._isReconnecting = false;
+    self._nextId = 0;
+    self._callbacks = {};
+    self._updatedCallbacks = {};
+    self._pendingMethods = {};
+    self._observers = {};
   }
 
   _prepareHandlers() {
-
-    this.socket.on("open", function() {
+    var self = this;
+    self.socket.onopen = function() {
       // just go ahead and open the connection on connect
-      this._send({
+      self._send({
         msg : "connect",
-        version : this.ddpVersion,
-        support : this.supportedDdpVersions
+        version : self.ddpVersion,
+        support : self.supportedDdpVersions
       });
-    });
+    };
 
-    this.socket.on("error", function(error) {
+    self.socket.onerror = function(error) {
       // error received before connection was established
-      if (this._isConnecting) {
-        this.emit("failed", error.message);
+      if (self._isConnecting) {
+        self.emit("failed", error.message);
       }
 
-      this.emit("socket-error", error);
-    });
+      self.emit("socket-error", error);
+    };
 
-    this.socket.on("close", function(event) {
-      this.emit("socket-close", event.code, event.reason);
-      this._endPendingMethodCalls();
-      this._recoverNetworkError();
-    });
+    self.socket.onclose = function(event) {
+      self.emit("socket-close", event.code, event.reason);
+      self._endPendingMethodCalls();
+      self._recoverNetworkError();
+    };
 
-    this.socket.on("message", function(event) {
-      this._message(event.data);
-      this.emit("message", event.data);
-    });
+    self.socket.onmessage = function(event) {
+      self._message(event.data);
+      self.emit("message", event.data);
+    };
   }
 
   _clearReconnectTimeout() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
+    var self = this;
+    if (self.reconnectTimeout) {
+      clearTimeout(self.reconnectTimeout);
+      self.reconnectTimeout = null;
     }
   }
 
   _recoverNetworkError() {
-    if (this.autoReconnect && ! this._connectionFailed && ! this._isClosing) {
-      this._clearReconnectTimeout();
-      this.reconnectTimeout = setTimeout(function() { this.connect(); }, this.autoReconnectTimer);
-      this._isReconnecting = true;
+    var self = this;
+    if (self.autoReconnect && ! self._connectionFailed && ! self._isClosing) {
+      self._clearReconnectTimeout();
+      self.reconnectTimeout = setTimeout(function() { self.connect(); }, self.autoReconnectTimer);
+      self._isReconnecting = true;
     }
   }
 
   ///////////////////////////////////////////////////////////////////////////
   // RAW, low level functions
   _send(data) {
-    this.socket.send(
+    var self = this;
+    self.socket.send(
       EJSON.stringify(data)
     );
   }
 
   // handle a message from the server
   _message(data) {
-
+    var self = this;
     data = EJSON.parse(data);
 
     // TODO: 'addedBefore' -- not yet implemented in Meteor
@@ -121,65 +124,65 @@ class DDPClient extends EventEmitter{
       return;
 
     } else if (data.msg === "failed") {
-      if (this.supportedDdpVersions.indexOf(data.version) !== -1) {
-        this.ddpVersion = data.version;
-        this.connect();
+      if (self.supportedDdpVersions.indexOf(data.version) !== -1) {
+        self.ddpVersion = data.version;
+        self.connect();
       } else {
-        this.autoReconnect = false;
-        this.emit("failed", "Cannot negotiate DDP version");
+        self.autoReconnect = false;
+        self.emit("failed", "Cannot negotiate DDP version");
       }
 
     } else if (data.msg === "connected") {
-      this.session = data.session;
-      this.emit("connected");
+      self.session = data.session;
+      self.emit("connected");
 
     // method result
     } else if (data.msg === "result") {
-      var cb = this._callbacks[data.id];
+      var cb = self._callbacks[data.id];
 
       if (cb) {
         cb(data.error, data.result);
-        delete this._callbacks[data.id];
+        delete self._callbacks[data.id];
       }
 
     // method updated
     } else if (data.msg === "updated") {
 
       _.each(data.methods, function (method) {
-        var cb = this._updatedCallbacks[method];
+        var cb = self._updatedCallbacks[method];
         if (cb) {
           cb();
-          delete this._updatedCallbacks[method];
+          delete self._updatedCallbacks[method];
         }
       });
 
     // missing subscription
     } else if (data.msg === "nosub") {
-      var cb = this._callbacks[data.id];
+      var cb = self._callbacks[data.id];
 
       if (cb) {
         cb(data.error);
-        delete this._callbacks[data.id];
+        delete self._callbacks[data.id];
       }
 
     // add document to collection
     } else if (data.msg === "added") {
-      if (this.maintainCollections && data.collection) {
+      if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
 
-        if (! this.collections[name])     { this.collections[name] = {}; }
-        if (! this.collections[name][id]) { this.collections[name][id] = {}; }
+        if (! self.collections[name])     { self.collections[name] = {}; }
+        if (! self.collections[name][id]) { self.collections[name][id] = {}; }
 
-        this.collections[name][id]._id = id;
+        self.collections[name][id]._id = id;
 
         if (data.fields) {
           _.each(data.fields, function(value, key) {
-            this.collections[name][id][key] = value;
+            self.collections[name][id][key] = value;
           });
         }
 
-        if (this._observers[name]) {
-          _.each(this._observers[name], function(observer) {
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {
             observer.added(id);
           });
         }
@@ -187,19 +190,19 @@ class DDPClient extends EventEmitter{
 
     // remove document from collection
     } else if (data.msg === "removed") {
-      if (this.maintainCollections && data.collection) {
+      if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
 
-        if (! this.collections[name][id]) {
+        if (! self.collections[name][id]) {
           return;
         }
 
-        var oldValue = this.collections[name][id];
+        var oldValue = self.collections[name][id];
 
-        delete this.collections[name][id];
+        delete self.collections[name][id];
 
-        if (this._observers[name]) {
-          _.each(this._observers[name], function(observer) {
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {
             observer.removed(id, oldValue);
           });
         }
@@ -207,11 +210,11 @@ class DDPClient extends EventEmitter{
 
     // change document in collection
     } else if (data.msg === "changed") {
-      if (this.maintainCollections && data.collection) {
+      if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
 
-        if (! this.collections[name])     { return; }
-        if (! this.collections[name][id]) { return; }
+        if (! self.collections[name])     { return; }
+        if (! self.collections[name][id]) { return; }
 
         var oldFields     = {},
             clearedFields = data.cleared || [],
@@ -219,20 +222,20 @@ class DDPClient extends EventEmitter{
 
         if (data.fields) {
           _.each(data.fields, function(value, key) {
-              oldFields[key] = this.collections[name][id][key];
+              oldFields[key] = self.collections[name][id][key];
               newFields[key] = value;
-              this.collections[name][id][key] = value;
+              self.collections[name][id][key] = value;
           });
         }
 
         if (data.cleared) {
           _.each(data.cleared, function(value) {
-              delete this.collections[name][id][value];
+              delete self.collections[name][id][value];
           });
         }
 
-        if (this._observers[name]) {
-          _.each(this._observers[name], function(observer) {
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {
             observer.changed(id, oldFields, clearedFields, newFields);
           });
         }
@@ -241,16 +244,16 @@ class DDPClient extends EventEmitter{
     // subscriptions ready
     } else if (data.msg === "ready") {
       _.each(data.subs, function(id) {
-        var cb = this._callbacks[id];
+        var cb = self._callbacks[id];
         if (cb) {
           cb();
-          delete this._callbacks[id];
+          delete self._callbacks[id];
         }
       });
 
     // minimal heartbeat response for ddp pre2
     } else if (data.msg === "ping") {
-      this._send(
+      self._send(
         _.has(data, "id") ? { msg : "pong", id : data.id } : { msg : "pong" }
       );
     }
@@ -258,22 +261,25 @@ class DDPClient extends EventEmitter{
 
 
   _getNextId() {
-    return (this._nextId += 1).toString();
+    var self = this;
+    return (self._nextId += 1).toString();
   }
 
 
   _addObserver(observer) {
-    if (! this._observers[observer.name]) {
-      this._observers[observer.name] = {};
+    var self = this;
+    if (! self._observers[observer.name]) {
+      self._observers[observer.name] = {};
     }
-    this._observers[observer.name][observer._id] = observer;
+    self._observers[observer.name][observer._id] = observer;
   }
 
 
   _removeObserver(observer) {
-    if (! this._observers[observer.name]) { return; }
+    var self = this;
+    if (! self._observers[observer.name]) { return; }
 
-    delete this._observers[observer.name][observer._id];
+    delete self._observers[observer.name][observer._id];
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -286,70 +292,75 @@ class DDPClient extends EventEmitter{
    *               called each time the connection is opened.
    */
   connect(connected) {
-    this._isConnecting = true;
-    this._connectionFailed = false;
-    this._isClosing = false;
+    var self = this;
+    self._isConnecting = true;
+    self._connectionFailed = false;
+    self._isClosing = false;
 
     if (connected) {
-      this.addListener("connected", function() {
-        this._clearReconnectTimeout();
+      self.addListener("connected", function() {
+        self._clearReconnectTimeout();
 
-        connected(undefined, this._isReconnecting);
-        this._isConnecting = false;
-        this._isReconnecting = false;
+        connected(undefined, self._isReconnecting);
+        self._isConnecting = false;
+        self._isReconnecting = false;
       });
-      this.addListener("failed", function(error) {
-        this._isConnecting = false;
-        this._connectionFailed = true;
-        connected(error, this._isReconnecting);
+      self.addListener("failed", function(error) {
+        self._isConnecting = false;
+        self._connectionFailed = true;
+        connected(error, self._isReconnecting);
       });
     }
 
-    var url = this._buildWsUrl();
-    this._makeWebSocketConnection(url);
+    var url = self._buildWsUrl();
+    self._makeWebSocketConnection(url);
 
   }
 
   _endPendingMethodCalls() {
-    var ids = _.keys(this._pendingMethods);
-    this._pendingMethods = {};
+    var self = this;
+    var ids = _.keys(self._pendingMethods);
+    self._pendingMethods = {};
 
     ids.forEach(function (id) {
-      if (this._callbacks[id]) {
-        this._callbacks[id](new Error("DDPClient: Disconnected from DDP server"));
-        delete this._callbacks[id];
+      if (self._callbacks[id]) {
+        self._callbacks[id](new Error("DDPClient: Disconnected from DDP server"));
+        delete self._callbacks[id];
       }
 
-      if (this._updatedCallbacks[id]) {
-        this._updatedCallbacks[id]();
-        delete this._updatedCallbacks[id];
+      if (self._updatedCallbacks[id]) {
+        self._updatedCallbacks[id]();
+        delete self._updatedCallbacks[id];
       }
     });
   }
 
   _buildWsUrl(path) {
+    var self = this;
     var url;
-    path = path || this.path || "websocket";
-    var protocol = this.ssl ? "wss://" : "ws://";
-    if (this.url) {
-      url = this.url;
+    path = path || self.path || "websocket";
+    var protocol = self.ssl ? "wss://" : "ws://";
+    if (self.url) {
+      url = self.url;
     } else {
-      url = protocol + this.host + ":" + this.port;
+      url = protocol + self.host + ":" + self.port;
       url += (path.indexOf("/") === 0)? path : "/" + path;
     }
     return url;
   }
 
   _makeWebSocketConnection(url) {
-    this.socket = new this.socketConstructor(url);
-    this._prepareHandlers();
+    var self = this;
+    self.socket = new self.socketConstructor(url);
+    self._prepareHandlers();
   }
 
   close() {
-    this._isClosing = true;
-    this.socket.close();
-    this.removeAllListeners("connected");
-    this.removeAllListeners("failed");
+    var self = this;
+    self._isClosing = true;
+    self.socket.close();
+    self.removeAllListeners("connected");
+    self.removeAllListeners("failed");
   }
 
 
@@ -357,27 +368,28 @@ class DDPClient extends EventEmitter{
   //
   // callback = function(err, result)
   call(name, params, callback, updatedCallback) {
-    var id = this._getNextId();
+    var self = this;
+    var id = self._getNextId();
 
-    this._callbacks[id] = function () {
-      delete this._pendingMethods[id];
+    self._callbacks[id] = function () {
+      delete self._pendingMethods[id];
 
       if (callback) {
         callback.apply(this, arguments);
       }
     };
 
-    this._updatedCallbacks[id] = function () {
-      delete this._pendingMethods[id];
+    self._updatedCallbacks[id] = function () {
+      delete self._pendingMethods[id];
 
       if (updatedCallback) {
         updatedCallback.apply(this, arguments);
       }
     };
 
-    this._pendingMethods[id] = true;
+    self._pendingMethods[id] = true;
 
-    this._send({
+    self._send({
       msg    : "method",
       id     : id,
       method : name,
@@ -387,17 +399,18 @@ class DDPClient extends EventEmitter{
 
 
   callWithRandomSeed(name, params, randomSeed, callback, updatedCallback) {
-    var id = this._getNextId();
+    var self = this;
+    var id = self._getNextId();
 
     if (callback) {
-      this._callbacks[id] = callback;
+      self._callbacks[id] = callback;
     }
 
     if (updatedCallback) {
-      this._updatedCallbacks[id] = updatedCallback;
+      self._updatedCallbacks[id] = updatedCallback;
     }
 
-    this._send({
+    self._send({
       msg        : "method",
       id         : id,
       method     : name,
@@ -408,13 +421,14 @@ class DDPClient extends EventEmitter{
 
   // open a subscription on the server, callback should handle on ready and nosub
   subscribe(name, params, callback) {
-    var id = this._getNextId();
+    var self = this;
+    var id = self._getNextId();
 
     if (callback) {
-      this._callbacks[id] = callback;
+      self._callbacks[id] = callback;
     }
 
-    this._send({
+    self._send({
       msg    : "sub",
       id     : id,
       name   : name,
@@ -425,8 +439,8 @@ class DDPClient extends EventEmitter{
   }
 
   unsubscribe(id) {
-
-    this._send({
+    var self = this;
+    self._send({
       msg : "unsub",
       id  : id
     });
@@ -439,8 +453,9 @@ class DDPClient extends EventEmitter{
    * afterward.
    */
   observe(name, added, updated, removed) {
+    var self = this;
     var observer = {};
-    var id = this._getNextId();
+    var id = self._getNextId();
 
     // name, _id are immutable
     Object.defineProperty(observer, "name", {
@@ -455,10 +470,10 @@ class DDPClient extends EventEmitter{
     observer.removed = removed || function(){};
 
     observer.stop = function() {
-      this._removeObserver(observer);
+      self._removeObserver(observer);
     };
 
-    this._addObserver(observer);
+    self._addObserver(observer);
 
     return observer;
   }
