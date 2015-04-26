@@ -464,3 +464,5 @@ class DDPClient extends EventEmitter{
   }
 
 }
+
+module.exports = DDPClient;
