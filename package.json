@@ -5,13 +5,19 @@
   "main": "index.js",
   "keywords": [
     "ddp",
-    "meteor"
+    "meteor",
+    "protocol"
   ],
   "dependencies": {
     "underscore": "1.8.3",
     "events": "1.0.2",
     "ejson": "2.0.1"
   },
-  "author": "Harrison Harnisch",
-  "license": "MIT"
+  "author": "Harrison Harnisch <hharnisc@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https@github.com:hharnisc/node-ddp-client.git"
+  },
+  "bugs": "https://github.com/hharnisc/node-ddp-client/issues"
 }
