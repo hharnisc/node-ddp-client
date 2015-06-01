@@ -1,6 +1,7 @@
 "use strict";
 
 var _ = require('underscore');
+var minimongo = require('minimongo-cache');
 var EventEmitter = require('events').EventEmitter;
 var EJSON = require("ejson");
 
@@ -41,7 +42,7 @@ class DDPClient extends EventEmitter{
 
     // very very simple collections (name -> [{id -> document}])
     if (self.maintainCollections) {
-      self.collections = {};
+      self.collections = new minimongo();
     }
 
     // internal stuff to track callbacks
@@ -170,42 +171,24 @@ class DDPClient extends EventEmitter{
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
 
-        if (! self.collections[name])     { self.collections[name] = {}; }
-        if (! self.collections[name][id]) { self.collections[name][id] = {}; }
-
-        self.collections[name][id]._id = id;
+        var item = {
+          _id: id
+        };
 
         if (data.fields) {
           _.each(data.fields, function(value, key) {
-            self.collections[name][id][key] = value;
-          });
+            item[key] = value;
+          })
         }
 
-        if (self._observers[name]) {
-          _.each(self._observers[name], function(observer) {
-            observer.added(id);
-          });
-        }
+        self.collections[name].upsert(item);
       }
 
     // remove document from collection
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
-
-        if (! self.collections[name][id]) {
-          return;
-        }
-
-        var oldValue = self.collections[name][id];
-
-        delete self.collections[name][id];
-
-        if (self._observers[name]) {
-          _.each(self._observers[name], function(observer) {
-            observer.removed(id, oldValue);
-          });
-        }
+        self.collections[name].remove(id);
       }
 
     // change document in collection
@@ -213,32 +196,17 @@ class DDPClient extends EventEmitter{
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
 
-        if (! self.collections[name])     { return; }
-        if (! self.collections[name][id]) { return; }
-
-        var oldFields     = {},
-            clearedFields = data.cleared || [],
-            newFields = {};
+        var item = {
+          _id: id
+        };
 
         if (data.fields) {
           _.each(data.fields, function(value, key) {
-              oldFields[key] = self.collections[name][id][key];
-              newFields[key] = value;
-              self.collections[name][id][key] = value;
-          });
+            item[key] = value;
+          })
         }
 
-        if (data.cleared) {
-          _.each(data.cleared, function(value) {
-              delete self.collections[name][id][value];
-          });
-        }
-
-        if (self._observers[name]) {
-          _.each(self._observers[name], function(observer) {
-            observer.changed(id, oldFields, clearedFields, newFields);
-          });
-        }
+        self.collections[name].upsert(item);
       }
 
     // subscriptions ready
@@ -435,10 +403,13 @@ class DDPClient extends EventEmitter{
       params : params
     });
 
+    self.collections.addCollection(name);
+
     return id;
   }
 
   unsubscribe(id) {
+    // TODO: self.collections.removeCollection?
     var self = this;
     self._send({
       msg : "unsub",

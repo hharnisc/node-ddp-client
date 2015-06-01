@@ -11,7 +11,8 @@
   "dependencies": {
     "underscore": "1.8.3",
     "events": "1.0.2",
-    "ejson": "2.0.1"
+    "ejson": "2.0.1",
+    "minimongo-cache": "0.0.24"
   },
   "author": "Harrison Harnisch <hharnisc@gmail.com>",
   "license": "MIT",
