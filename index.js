@@ -170,15 +170,17 @@ class DDPClient extends EventEmitter{
     } else if (data.msg === "added") {
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
-
         var item = {
-          _id: id
+          "_id": id
         };
-
         if (data.fields) {
           _.each(data.fields, function(value, key) {
             item[key] = value;
           })
+        }
+
+        if (! self.collections[name]) {
+          self.collections.addCollection(name);
         }
 
         self.collections[name].upsert(item);
@@ -188,7 +190,7 @@ class DDPClient extends EventEmitter{
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
-        self.collections[name].remove(id);
+        self.collections[name].remove({"_id": id});
       }
 
     // change document in collection
@@ -197,7 +199,7 @@ class DDPClient extends EventEmitter{
         var name = data.collection, id = data.id;
 
         var item = {
-          _id: id
+          "_id": id
         };
 
         if (data.fields) {
@@ -403,13 +405,10 @@ class DDPClient extends EventEmitter{
       params : params
     });
 
-    self.collections.addCollection(name);
-
     return id;
   }
 
   unsubscribe(id) {
-    // TODO: self.collections.removeCollection?
     var self = this;
     self._send({
       msg : "unsub",
