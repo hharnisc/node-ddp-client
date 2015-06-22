@@ -1,7 +1,6 @@
 "use strict";
 
 var _ = require('underscore');
-var minimongo = require('minimongo-cache');
 var EventEmitter = require('events').EventEmitter;
 var EJSON = require("ejson");
 
@@ -16,8 +15,6 @@ class DDPClient extends EventEmitter{
       opts.autoReconnect = opts.auto_reconnect;
     if ("auto_reconnect_timer" in opts)
       opts.autoReconnectTimer = opts.auto_reconnect_timer;
-    if ("maintain_collections" in opts)
-      opts.maintainCollections = opts.maintain_collections;
     if ("ddp_version" in opts)
       opts.ddpVersion = opts.ddp_version;
 
@@ -29,7 +26,7 @@ class DDPClient extends EventEmitter{
     self.tlsOpts = opts.tlsOpts || {};
     self.autoReconnect = ("autoReconnect" in opts) ? opts.autoReconnect : true;
     self.autoReconnectTimer = ("autoReconnectTimer" in opts) ? opts.autoReconnectTimer : 500;
-    self.maintainCollections = ("maintainCollections" in opts) ? opts.maintainCollections : true;
+    self.cache = ("cache" in opts) ? opts.cache : null;
     self.url = opts.url;
     self.socketConstructor = opts.socketContructor || WebSocket;
 
@@ -40,11 +37,6 @@ class DDPClient extends EventEmitter{
     // Expose EJSON object, so client can use EJSON.addType(...)
     self.EJSON = EJSON;
 
-    // very very simple collections (name -> [{id -> document}])
-    if (self.maintainCollections) {
-      self.collections = new minimongo();
-    }
-
     // internal stuff to track callbacks
     self._isConnecting = false;
     self._isReconnecting = false;
@@ -52,7 +44,6 @@ class DDPClient extends EventEmitter{
     self._callbacks = {};
     self._updatedCallbacks = {};
     self._pendingMethods = {};
-    self._observers = {};
   }
 
   _prepareHandlers() {
@@ -178,19 +169,21 @@ class DDPClient extends EventEmitter{
             item[key] = value;
           })
         }
-
-        if (! self.collections[name]) {
-          self.collections.addCollection(name);
+        if (!!self.cache) {
+          if (! self.cache[name]) {
+            self.cache.addCollection(name);
+          }
+          self.cache[name].upsert(item);
         }
-
-        self.collections[name].upsert(item);
       }
 
     // remove document from collection
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
-        self.collections[name].remove({"_id": id});
+        if (!!self.cache) {
+          self.cache[name].remove({"_id": id});
+        }
       }
 
     // change document in collection
@@ -208,7 +201,9 @@ class DDPClient extends EventEmitter{
           })
         }
 
-        self.collections[name].upsert(item);
+        if (!!self.cache) {
+          self.cache[name].upsert(item);
+        }
       }
 
     // subscriptions ready
@@ -233,23 +228,6 @@ class DDPClient extends EventEmitter{
   _getNextId() {
     var self = this;
     return (self._nextId += 1).toString();
-  }
-
-
-  _addObserver(observer) {
-    var self = this;
-    if (! self._observers[observer.name]) {
-      self._observers[observer.name] = {};
-    }
-    self._observers[observer.name][observer._id] = observer;
-  }
-
-
-  _removeObserver(observer) {
-    var self = this;
-    if (! self._observers[observer.name]) { return; }
-
-    delete self._observers[observer.name][observer._id];
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -415,39 +393,6 @@ class DDPClient extends EventEmitter{
       id  : id
     });
   }
-
-  /**
-   * Adds an observer to a collection and returns the observer.
-   * Observation can be stopped by calling the stop() method on the observer.
-   * Functions for added, updated and removed can be added to the observer
-   * afterward.
-   */
-  observe(name, added, updated, removed) {
-    var self = this;
-    var observer = {};
-    var id = self._getNextId();
-
-    // name, _id are immutable
-    Object.defineProperty(observer, "name", {
-      get: function() { return name; },
-      enumerable: true
-    });
-
-    Object.defineProperty(observer, "_id", { get: function() { return id; }});
-
-    observer.added   = added   || function(){};
-    observer.updated = updated || function(){};
-    observer.removed = removed || function(){};
-
-    observer.stop = function() {
-      self._removeObserver(observer);
-    };
-
-    self._addObserver(observer);
-
-    return observer;
-  }
-
 }
 
 module.exports = DDPClient;
