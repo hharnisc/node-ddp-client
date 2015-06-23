@@ -1,8 +1,8 @@
 {
   "name": "ddp-client",
-  "version": "0.1.0",
+  "version": "0.1.1-beta1",
   "description": "DDP Client for browsers and native JS runtimes (no dependencies on document or 3rd party WebSocket libraries)",
-  "main": "index.js",
+  "main": "./lib/index.js",
   "keywords": [
     "ddp",
     "meteor",
@@ -12,6 +12,12 @@
     "underscore": "1.8.3",
     "events": "1.0.2",
     "ejson": "2.0.1"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.9.1",
+  },
+  "scripts": {
+    "prepublish": "coffee -o lib -c src/*.coffee"
   },
   "author": "Harrison Harnisch <hharnisc@gmail.com>",
   "license": "MIT",
