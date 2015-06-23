@@ -16,7 +16,7 @@ class DDPClient extends EventEmitter
     @autoReconnectTimer = opts.autoReconnectTimer ? 500
     @cache = opts.cache ? null
     @url = opts.url
-    @socketConstructor = opts.socketContructor ? WebSocket
+    @socketConstructor = opts.socketConstructor ? WebSocket
 
     # support multiple ddp versions
     @ddpVersion = if "ddpVersion" in opts then opts.ddpVersion else "1"
