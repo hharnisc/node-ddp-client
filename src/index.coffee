@@ -66,7 +66,8 @@ class DDPClient extends EventEmitter
   _recoverNetworkError: ->
     if @autoReconnect and not @_connectionFailed and not @_isClosing
       @_clearReconnectTimeout()
-      @reconnectTimeout = setTimeout @connect, @autoReconnectTimer
+      connectWrapper = => @connect()
+      @reconnectTimeout = setTimeout connectWrapper, @autoReconnectTimer
       @_isReconnecting = true
 
 
