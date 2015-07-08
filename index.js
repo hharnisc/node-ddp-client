@@ -6,6 +6,7 @@ var EJSON = require("ejson");
 
 class DDPClient extends EventEmitter{
   constructor(opts) {
+    super();
     var self = this;
     opts = opts || {};
     // backwards compatibility
