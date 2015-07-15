@@ -1,6 +1,6 @@
 {
   "name": "ddp-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DDP Client for browsers and native JS runtimes (no dependencies on document or 3rd party WebSocket libraries)",
   "main": "index.js",
   "keywords": [
