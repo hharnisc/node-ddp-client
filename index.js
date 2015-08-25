@@ -5,6 +5,12 @@ var minimongo = require('minimongo-cache');
 var EventEmitter = require('events').EventEmitter;
 var EJSON = require("ejson");
 
+// Polyfill for process.nextTick
+if (typeof this.process === 'undefined') {
+  process = {};
+  process.nextTick = setImmediate;
+}
+
 class DDPClient extends EventEmitter{
   constructor(opts) {
     super();
