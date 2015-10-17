@@ -199,7 +199,7 @@ class DDPClient extends EventEmitter{
         var name = data.collection, 
           id = data.id
           oldFields = self.collections[name].get(id);
-          
+
         self.collections[name].remove({"_id": id});
    
         if (self._observers[name]) {
@@ -229,7 +229,7 @@ class DDPClient extends EventEmitter{
           })
         }
 
-        self.collections[name].upsert(item);
+        newFields = self.collections[name].upsert(item);
 
         if (self._observers[name]) {
           _.each(self._observers[name], function(observer) {   
