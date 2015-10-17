@@ -185,31 +185,57 @@ class DDPClient extends EventEmitter{
         }
 
         self.collections[name].upsert(item);
+
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {   
+            observer.added(id, item);    
+          });    
+        }
       }
 
     // remove document from collection
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
-        var name = data.collection, id = data.id;
+        var name = data.collection, 
+          id = data.id
+          oldFields = self.collections[name].get(id);
+          
         self.collections[name].remove({"_id": id});
+   
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {
+            observer.removed(id, oldFields);
+          });
+        }
       }
-
-    // change document in collection
+ 
+      // change document in collection
     } else if (data.msg === "changed") {
       if (self.maintainCollections && data.collection) {
-        var name = data.collection, id = data.id;
+        var name = data.collection, 
+            id = data.id,
+            oldFields = {},
+            newFields = {},
+            clearedFields = data.cleared || [];
 
         var item = {
           "_id": id
         };
 
         if (data.fields) {
+          oldFields = self.collections[name].get(id);
           _.each(data.fields, function(value, key) {
             item[key] = value;
           })
         }
 
         self.collections[name].upsert(item);
+
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {   
+            observer.changed(id, oldFields, clearedFields, newFields);   
+          });    
+        }
       }
 
     // subscriptions ready
