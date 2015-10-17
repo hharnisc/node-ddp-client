@@ -446,10 +446,10 @@ class DDPClient extends EventEmitter{
   /**
    * Adds an observer to a collection and returns the observer.
    * Observation can be stopped by calling the stop() method on the observer.
-   * Functions for added, updated, removed and changed can be added to the observer
+   * Functions for added, removed and changed can be added to the observer
    * afterward.
    */
-  observe(name, added, updated, removed, changed) {
+  observe(name, added, changed, removed) {
     var self = this;
     var observer = {};
     var id = self._getNextId();
@@ -463,9 +463,8 @@ class DDPClient extends EventEmitter{
     Object.defineProperty(observer, "_id", { get: function() { return id; }});
 
     observer.added   = added   || function(){};
-    observer.updated = updated || function(){};
-    observer.removed = removed || function(){};
     observer.changed = changed || function(){};
+    observer.updated = updated || function(){};
 
     observer.stop = function() {
       self._removeObserver(observer);
