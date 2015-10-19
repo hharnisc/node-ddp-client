@@ -464,7 +464,7 @@ class DDPClient extends EventEmitter{
 
     observer.added   = added   || function(){};
     observer.changed = changed || function(){};
-    observer.updated = updated || function(){};
+    observer.removed = removed || function(){};
 
     observer.stop = function() {
       self._removeObserver(observer);
