@@ -185,31 +185,57 @@ class DDPClient extends EventEmitter{
         }
 
         self.collections[name].upsert(item);
+
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {   
+            observer.added(id, item);    
+          });    
+        }
       }
 
     // remove document from collection
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
-        var name = data.collection, id = data.id;
-        self.collections[name].remove({"_id": id});
-      }
+        var name = data.collection, 
+          id = data.id
+          oldFields = self.collections[name].get(id);
 
-    // change document in collection
+        self.collections[name].remove({"_id": id});
+   
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {
+            observer.removed(id, oldFields);
+          });
+        }
+      }
+ 
+      // change document in collection
     } else if (data.msg === "changed") {
       if (self.maintainCollections && data.collection) {
-        var name = data.collection, id = data.id;
+        var name = data.collection, 
+            id = data.id,
+            oldFields = {},
+            newFields = {},
+            clearedFields = data.cleared || [];
 
         var item = {
           "_id": id
         };
 
         if (data.fields) {
+          oldFields = self.collections[name].get(id);
           _.each(data.fields, function(value, key) {
             item[key] = value;
           })
         }
 
-        self.collections[name].upsert(item);
+        newFields = self.collections[name].upsert(item);
+
+        if (self._observers[name]) {
+          _.each(self._observers[name], function(observer) {   
+            observer.changed(id, oldFields, clearedFields, newFields);   
+          });    
+        }
       }
 
     // subscriptions ready
@@ -420,10 +446,10 @@ class DDPClient extends EventEmitter{
   /**
    * Adds an observer to a collection and returns the observer.
    * Observation can be stopped by calling the stop() method on the observer.
-   * Functions for added, updated and removed can be added to the observer
+   * Functions for added, removed and changed can be added to the observer
    * afterward.
    */
-  observe(name, added, updated, removed) {
+  observe(name, added, changed, removed) {
     var self = this;
     var observer = {};
     var id = self._getNextId();
@@ -437,7 +463,7 @@ class DDPClient extends EventEmitter{
     Object.defineProperty(observer, "_id", { get: function() { return id; }});
 
     observer.added   = added   || function(){};
-    observer.updated = updated || function(){};
+    observer.changed = changed || function(){};
     observer.removed = removed || function(){};
 
     observer.stop = function() {
