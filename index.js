@@ -53,7 +53,6 @@ class DDPClient extends EventEmitter{
     self._callbacks = {};
     self._updatedCallbacks = {};
     self._pendingMethods = {};
-    self._observers = {};
   }
 
   _prepareHandlers() {
@@ -174,6 +173,7 @@ class DDPClient extends EventEmitter{
         var item = {
           "_id": id
         };
+
         if (data.fields) {
           _.each(data.fields, function(value, key) {
             item[key] = value;
@@ -190,7 +190,6 @@ class DDPClient extends EventEmitter{
     // remove document from collection
     } else if (data.msg === "removed") {
       if (self.maintainCollections && data.collection) {
-        var name = data.collection, id = data.id;
         self.collections[name].remove({"_id": id});
       }
 
@@ -198,7 +197,6 @@ class DDPClient extends EventEmitter{
     } else if (data.msg === "changed") {
       if (self.maintainCollections && data.collection) {
         var name = data.collection, id = data.id;
-
         var item = {
           "_id": id
         };
@@ -206,7 +204,7 @@ class DDPClient extends EventEmitter{
         if (data.fields) {
           _.each(data.fields, function(value, key) {
             item[key] = value;
-          })
+          });
         }
 
         self.collections[name].upsert(item);
@@ -230,27 +228,9 @@ class DDPClient extends EventEmitter{
     }
   }
 
-
   _getNextId() {
     var self = this;
     return (self._nextId += 1).toString();
-  }
-
-
-  _addObserver(observer) {
-    var self = this;
-    if (! self._observers[observer.name]) {
-      self._observers[observer.name] = {};
-    }
-    self._observers[observer.name][observer._id] = observer;
-  }
-
-
-  _removeObserver(observer) {
-    var self = this;
-    if (! self._observers[observer.name]) { return; }
-
-    delete self._observers[observer.name][observer._id];
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -285,7 +265,6 @@ class DDPClient extends EventEmitter{
 
     var url = self._buildWsUrl();
     self._makeWebSocketConnection(url);
-
   }
 
   _endPendingMethodCalls() {
@@ -334,7 +313,6 @@ class DDPClient extends EventEmitter{
     self.removeAllListeners("failed");
   }
 
-
   // call a method on the server,
   //
   // callback = function(err, result)
@@ -367,7 +345,6 @@ class DDPClient extends EventEmitter{
       params : params
     });
   }
-
 
   callWithRandomSeed(name, params, randomSeed, callback, updatedCallback) {
     var self = this;
@@ -416,39 +393,6 @@ class DDPClient extends EventEmitter{
       id  : id
     });
   }
-
-  /**
-   * Adds an observer to a collection and returns the observer.
-   * Observation can be stopped by calling the stop() method on the observer.
-   * Functions for added, updated and removed can be added to the observer
-   * afterward.
-   */
-  observe(name, added, updated, removed) {
-    var self = this;
-    var observer = {};
-    var id = self._getNextId();
-
-    // name, _id are immutable
-    Object.defineProperty(observer, "name", {
-      get: function() { return name; },
-      enumerable: true
-    });
-
-    Object.defineProperty(observer, "_id", { get: function() { return id; }});
-
-    observer.added   = added   || function(){};
-    observer.updated = updated || function(){};
-    observer.removed = removed || function(){};
-
-    observer.stop = function() {
-      self._removeObserver(observer);
-    };
-
-    self._addObserver(observer);
-
-    return observer;
-  }
-
 }
 
 module.exports = DDPClient;
