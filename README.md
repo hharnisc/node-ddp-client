@@ -32,6 +32,7 @@ ddpclient.call("login", [
 
 ```js
 var DDPClient = require("ddp-client");
+// or "ddp-client/promise" for promisified versions of all async functions
 
 var ddpclient = new DDPClient({
   // All properties optional, defaults shown
