@@ -167,6 +167,10 @@ ddpclient.on('socket-error', function(error) {
 var oid = new ddpclient.EJSON.ObjectID();
 ```
 
+React Native + Android emulators
+====
+If you want to connect to your `localhost` server from an Android emulator, set the host as `10.0.2.2` or `10.0.3.2` for Genymotion.
+
 Unimplemented Features
 ====
 The node DDP client does not implement ordered collections, something that while in the DDP spec has not been implemented in Meteor yet.
