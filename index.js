@@ -237,7 +237,7 @@ class DDPClient extends EventEmitter{
 
         if (self._observers[name]) {
           _.each(self._observers[name], function(observer) {
-            observer.changed(id, oldFields, clearedFields, newFields);
+            observer.updated(id, oldFields, clearedFields, newFields);
           });
         }
       }
