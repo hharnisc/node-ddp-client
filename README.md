@@ -9,7 +9,7 @@ Installation
 ============
 
 ```
-$ npm install ddp-client
+$ npm install evista-ddp-client
 ```
 
 Authentication

@@ -31,7 +31,7 @@ class DDPClient extends EventEmitter{
     self.autoReconnectTimer = ("autoReconnectTimer" in opts) ? opts.autoReconnectTimer : 500;
     self.maintainCollections = ("maintainCollections" in opts) ? opts.maintainCollections : true;
     self.url = opts.url;
-    self.socketConstructor = opts.socketContructor || WebSocket;
+    self.socketConstructor = opts.socketConstructor || WebSocket;
 
     // support multiple ddp versions
     self.ddpVersion = ("ddpVersion" in opts) ? opts.ddpVersion : "1";
