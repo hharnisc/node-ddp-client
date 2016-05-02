@@ -1,8 +1,12 @@
 {
-  "name": "ddp-client",
+  "name": "evista-ddp-client",
   "version": "0.1.1",
   "description": "DDP Client for browsers and native JS runtimes (no dependencies on document or 3rd party WebSocket libraries)",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https@github.com:kalacs/node-ddp-client.git"
+  },
   "keywords": [
     "ddp",
     "meteor",
@@ -13,11 +17,8 @@
     "events": "1.0.2",
     "ejson": "2.0.1"
   },
-  "author": "Harrison Harnisch <hharnisc@gmail.com>",
+  "author": "",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https@github.com:hharnisc/node-ddp-client.git"
-  },
-  "bugs": "https://github.com/hharnisc/node-ddp-client/issues"
+  "bugs": "https://github.com/kalacs/node-ddp-client/issues",
+  "homepage": "https://github.com/spencercarli/node-ddp-client#readme",
 }
