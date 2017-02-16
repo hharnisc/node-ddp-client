@@ -69,7 +69,7 @@ class DDPClient extends EventEmitter{
     self.socket.onerror = function(error) {
       // error received before connection was established
       if (self._isConnecting) {
-        self.emit("failed", error.message);
+        self.emit("failed", error);
       }
 
       self.emit("socket-error", error);
